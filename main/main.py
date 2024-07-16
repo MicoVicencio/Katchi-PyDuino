@@ -1,12 +1,15 @@
 from tkinter import *  # Importing the tkinter library for GUI
 from PIL import Image, ImageTk  # Importing the PIL library to handle images
 import speech_recognition as sr  # Importing the speech recognition library
-import webbrowser  # Importing the webbrowser module to open URLs
 import os  # Importing the os module to handle operating system interactions
 import platform  # Importing the platform module to get system-specific information
 import serial  # Importing the pyserial library to handle serial communication
 import time  # Importing the time module to handle time delays
 import threading  # Importing the threading module to handle concurrent execution
+import vlc
+
+# Global VLC media player instance
+media = None
 
 # Function to handle Arduino communication
 def arduino():
@@ -40,27 +43,28 @@ def arduino():
 
 # Songs list
 songs_list = {
-    "dilaw": "https://youtu.be/N8wWGeKGeYY?si=CNzaP9xMdxJ8a8JP",
-    "romcom": "https://youtu.be/C9xK2CQKcbo?si=Wl_Lfqap9yD6GKwz",
-    "walang alam": "https://youtu.be/3uw0hJwCmfI?si=Z2P98gnDlnslbw4c",
-    "tingin": "https://youtu.be/oOJNLIR5nwQ?si=zUqI-Xx-GjWJzOmT",
-    "buwan": "https://www.youtube.com/watch?v=f1cCpqOnc8c",
-    "fallen": "https://youtu.be/F1u0rzWYYFc?si=sLMHfhAwbc_O1yrV",
-    "mundo": "https://youtu.be/tu8vdo6G62o?si=jHnYIdNymilSsEVt",
-    "ere": "https://youtu.be/EQJzDPAFVqU?si=BZ-viQYWTLNWR0Xn",
-    "lihim": "https://youtu.be/R_sVqEj1pJM?si=yzOJvFCUIIcSDyZj",
-    "tadhana": "https://youtu.be/MJd_6nqxIYw?si=QoXvsnM5Ln9Q1f32",
-    "tahanan": "https://youtu.be/kkhXR-PdCnI?si=GtlRAvSz7nhpAQo9",
-    "beer": "https://youtu.be/C8twukz-0g0?si=9YEmpEMtRM9RbQPc",
-    "pasilyo": "https://youtu.be/ZGUtHVzi1qI?si=eykaa8dYvRyyhHOb",
-    "magbalik": "https://youtu.be/4JWM7QW0NIM?si=A94_gHCFtc0Pb8y5",
-    "migraine": "https://youtu.be/8sF9f1bMNo8?si=p9ksaQfTLsaWt4Tb",
-    "jopay": "https://youtu.be/MfEaylAx7Mk?si=wvdOS1K57gj8eQYh",
-    "antukin": "https://youtu.be/cuwo5-Mea8c?si=Y895m8Xncrh9Mcfg",
-    "babaero": "https://youtu.be/TGOkM5fbAss?si=_JPFI2XK5mXZHW49",
-    "saturn": "https://youtu.be/EkwcFOLrlkE?si=anHs2Hp_aZUmy4-r",
-    "all of me": "https://youtu.be/6VoT-KrseHA?si=dvlDibTOHDTz6y2u"
+    "bakit part 2": r"C:\ann cute\songs\BAKIT PART 2 - MAYONNAISE (karaoke version).mp4",
+    "romcom": r"C:\ann cute\songs\RomCom by Rob Deniel (Karaoke Version).mp4",
+    "walang alam": r"C:\ann cute\songs\Walang Alam - Hev Abi (Karaoke).mp4",
+    "tingin": r"C:\ann cute\songs\Tingin Cup of Joe Ft  Janine Teñoso Karaoke.mp4",
+    "buwan": r"C:\ann cute\songs\Juan Karlos - Buwan (Karaoke Version).mp4",
+    "fallen": r"C:\ann cute\songs\FALLEN - Lola Amour (KARAOKE VERSION).mp4",
+    "mundo": r"C:\ann cute\songs\MUNDO - IV Of Spades (KARAOKE VERSION).mp4",
+    "ere": r"C:\ann cute\songs\juan karlos - ERE (Karaoke Version).mp4",
+    "lihim": r"C:\ann cute\songs\Arthur Miguel - Lihim (Karaoke Version).mp4",
+    "tadhana": r"C:\ann cute\songs\TADHANA - Up Dharma Down (KARAOKE VERSION).mp4",
+    "tahanan": r"C:\ann cute\songs\Adie - Tahanan (Karaoke).mp4",
+    "beer": r"C:\ann cute\songs\Beer - Itchyworms (KARAOKE).mp4",
+    "sana": r"C:\ann cute\songs\I Belong to the Zoo - Sana (Karaoke Version).mp4",
+    "magbalik": r"C:\ann cute\songs\Callalily - Magbalik (Karaoke Version).mp4",
+    "migraine": r"C:\ann cute\songs\Moonstar88 - Migraine (Karaoke Version).mp4",
+    "jopay": r"C:\ann cute\songs\JOPAY - Mayonnaise (KARAOKE VERSION).mp4",
+    "antukin": r"C:\ann cute\songs\Rico Blanco - Antukin (Karaoke-Acoustic Instrumental).mp4",
+    "babaero": r"C:\ann cute\songs\BABAERO - gins&melodies ft. Hev Abi (Karaoke).mp4",
+    "saturn": r"C:\ann cute\songs\SZA - Saturn (Karaoke Version).mp4",
+    "all of me": r"C:\ann cute\songs\John Legend - All Of Me (Karaoke Version).mp4"
 }
+
 
 # Function to recognize speech
 def recognize_speech_from_mic(recognizer, microphone, timeout=5, phrase_time_limit=3):
@@ -88,10 +92,12 @@ def recognize_speech_from_mic(recognizer, microphone, timeout=5, phrase_time_lim
 
 # Function to start the microphone and listen for commands
 def micStart():
+    global media  # Use the global media instance
+
     recognizer = sr.Recognizer()
     microphone = sr.Microphone()
-
-    try:
+    while True:
+      try:
         response = recognize_speech_from_mic(recognizer, microphone)
         if not response["success"]:
             print("Error: ", response["error"])
@@ -101,31 +107,27 @@ def micStart():
 
             if song_title in songs_list:
                 url = songs_list[song_title]
-                webbrowser.open_new(url)
+                media = vlc.MediaPlayer(url)
+                media.play()
                 print(song_title)
                 return song_title
             elif response["transcription"].lower() == "close":
+                if media:
+                    media.stop()
                 print("Exiting...")
-                system = platform.system()
-                if system == "Windows":
-                    os.system("taskkill /im brave.exe /f")
-                elif system == "Darwin":
-                    os.system("pkill brave")
-                elif system == "Linux":
-                    os.system("pkill brave")
             else:
                 print("Song not found in the list.")
 
-    except TypeError:
+      except TypeError:
         print("An error occurred")
-    except KeyboardInterrupt:
+      except KeyboardInterrupt:
         print("\nProgram interrupted by user")
 
 # Function to create the GUI
 def create_gui():
     # List of songs to display in the GUI
     songs = [
-        "Dilaw - Maki",
+        "Bakit part 2 - Mayonaise",
         "Romcom - Rob Daniel",
         "Walang Alam - Hev Abi",
         "Tingin - Cup Of Joe",
@@ -137,7 +139,7 @@ def create_gui():
         "Tadhana - Up Dharma Down",
         "Tahanan - Adie",
         "Beer - Itchyworms",
-        "Pasilyo - SunKissed Lola",
+        "Sana - I Belong To The Zoo",
         "Magbalik - Callalily",
         "Migraine - Moonstar88",
         "Jopay - Mayonnaise",
@@ -187,7 +189,7 @@ def create_gui():
     # Bottom for displaying image
     picture = Frame(body, bg="#d3cfcf", height=250, width=700)
     picture.pack(side=BOTTOM, fill=BOTH, expand=True)
-    gif_path = "main/katchi.jpeg"  # Replace with the actual path to your image file
+    gif_path = "C:\\Users\\Mico\\Desktop\\CALCU JAVASCRIPT\\main\\katchi.jpeg"  # Replace with the actual path to your image file
     gif = Image.open(gif_path)
     photo = ImageTk.PhotoImage(gif)
 
@@ -197,10 +199,12 @@ def create_gui():
     # Footer settings
     footer = Frame(root, bg="#810404", height=80)
     footer.pack(fill=BOTH)
+    footer_text = Label(footer, text="© 2023 KATCHI Karaoke. All Rights Reserved.", font=("Helvetica", 12), bg="#810404", fg="white")
+    footer_text.pack(padx=10)
 
     root.mainloop()
 
 # Running the Arduino communication and GUI in separate threads
 if __name__ == "__main__":
-    threading.Thread(target=arduino, daemon=True).start()  # Start the Arduino communication in a separate thread
+    threading.Thread(target=micStart, daemon=True).start()  # Start the Arduino communication in a separate thread
     create_gui()  # Create and display the GUI
